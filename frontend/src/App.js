@@ -49,7 +49,7 @@ function App() {
       });
 
       const user = {
-        id: res.data._id,
+        _id: res.data._id,
         Name: res.data.Name,
       };
 

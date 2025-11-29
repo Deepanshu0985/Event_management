@@ -2,7 +2,7 @@ import axios from "axios";
 import { create } from "zustand";
 
 interface userSchema {
-  id: string;
+  _id: string;
   Name: string;
 }
 
@@ -24,12 +24,9 @@ const useUsers = create<User>((set) => ({
   addUser: (item) =>
     set((state) =>
       state.userData.find((i) => i.Name === item.Name)
-        ? {
-          userData: state.userData.filter((i) => i.Name !== item.Name),
-        }
+        ? state
         : { userData: [...state.userData, item] }
     ),
 }));
-
 
 export default useUsers;
