@@ -5,6 +5,14 @@ import Select from "react-select";
 import useUsers from "./store/useUsers";
 import useEvents from "./store/useEvents";
 import EditEvent from "./components/EditEvent.js";
+import UpdateLogs from "./components/UpdateLogs.js";
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc.js";
+import timezone from "dayjs/plugin/timezone.js";
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
 
 function App() {
   const { userData, getUsers, addUser } = useUsers();
@@ -32,6 +40,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [creatingEvent, setCreatingEvent] = useState(false);
   const [editingEvent, setEditingEvent] = useState(false);
+  const [showUpdateLogs, setShowUpdateLogs] = useState(false);
 
   useEffect(() => {
     getUsers();
@@ -66,6 +75,15 @@ function App() {
 
   const handleCreateEvent = async () => {
     try {
+      // Validate dates
+      const start = dayjs.tz(`${startDate} ${startTime}`, timezone);
+      const end = dayjs.tz(`${endDate} ${endTime}`, timezone);
+
+      if (end.isBefore(start) || end.isSame(start)) {
+        alert("End date/time must be after start date/time");
+        return;
+      }
+
       setCreatingEvent(true);
       const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5001";
       const res = await axios.post(`${API_URL}/api/events`, {
@@ -206,7 +224,15 @@ function App() {
           </div>
 
           <div className="bg-white border-2 rounded-lg h-full w-full flex flex-col gap-4 p-4">
-            <span className="text-xl font-semibold">Events</span>
+            <div className="flex justify-between items-center">
+              <span className="text-xl font-semibold">Events</span>
+              <button
+                onClick={() => setShowUpdateLogs(true)}
+                className="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600 transition-colors"
+              >
+                View Update Logs
+              </button>
+            </div>
 
             <label className="font-semibold">View in Timezones</label>
             <select
@@ -334,6 +360,14 @@ function App() {
           </div>
         )}
       </div>
+
+      {showUpdateLogs && (
+        <UpdateLogs
+          events={events}
+          userData={userData}
+          onClose={() => setShowUpdateLogs(false)}
+        />
+      )}
     </div>
   );
 }

@@ -25,7 +25,8 @@ mongoose
 // --- Sample Schema & Model ---
 const UserSchema = new mongoose.Schema({
   Name: String,
-});
+  preferredTimezone: { type: String, default: "Asia/Kolkata" },
+}, { timestamps: true });
 
 const User = mongoose.model("user", UserSchema);
 
@@ -34,7 +35,13 @@ const UserEventSchema = new mongoose.Schema({
   EventStartDate: Date,
   EventEndDate: Date,
   EventTimezone: String,
-});
+  updateHistory: [
+    {
+      updatedAt: { type: Date, default: Date.now },
+      changes: Object,
+    },
+  ],
+}, { timestamps: true });
 
 const Event = mongoose.model("Event", UserEventSchema);
 
@@ -111,7 +118,22 @@ app.get("/api/events/user/:userId", async (req, res) => {
   }
 });
 
-// Update
+// Update user timezone
+app.put("/api/users/:id/timezone", async (req, res) => {
+  try {
+    const updated = await User.findByIdAndUpdate(
+      req.params.id,
+      { preferredTimezone: req.body.preferredTimezone },
+      { new: true }
+    );
+    if (!updated) return res.status(404).json({ error: "User not found" });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update (legacy - not used)
 app.put("/api/users/:id", async (req, res) => {
   const updated = await Event.findByIdAndUpdate(req.params.id, req.body, {
     new: true,
@@ -121,8 +143,53 @@ app.put("/api/users/:id", async (req, res) => {
 
 app.put("/api/events/:id", async (req, res) => {
   try {
+    // Get the current event before updating
+    const currentEvent = await Event.findById(req.params.id);
+    if (!currentEvent) return res.status(404).json({ error: "Event not found" });
+
+    // Build a changes object comparing old vs new
+    const changes = {};
+
+    if (req.body.EventStartDate && req.body.EventStartDate !== currentEvent.EventStartDate.toISOString()) {
+      changes.EventStartDate = {
+        old: currentEvent.EventStartDate,
+        new: req.body.EventStartDate,
+      };
+    }
+
+    if (req.body.EventEndDate && req.body.EventEndDate !== currentEvent.EventEndDate.toISOString()) {
+      changes.EventEndDate = {
+        old: currentEvent.EventEndDate,
+        new: req.body.EventEndDate,
+      };
+    }
+
+    if (req.body.EventTimezone && req.body.EventTimezone !== currentEvent.EventTimezone) {
+      changes.EventTimezone = {
+        old: currentEvent.EventTimezone,
+        new: req.body.EventTimezone,
+      };
+    }
+
+    if (req.body.userIds && JSON.stringify(req.body.userIds) !== JSON.stringify(currentEvent.userIds)) {
+      changes.userIds = {
+        old: currentEvent.userIds,
+        new: req.body.userIds,
+      };
+    }
+
+    // Only add to history if there are actual changes
+    if (Object.keys(changes).length > 0) {
+      req.body.updateHistory = [
+        ...(currentEvent.updateHistory || []),
+        {
+          updatedAt: new Date(),
+          changes,
+        },
+      ];
+    }
+
     const updated = await Event.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!updated) return res.status(404).json({ error: "Event not found" });
     res.json(updated);
   } catch (err) {
     res.status(500).json({ error: err.message });

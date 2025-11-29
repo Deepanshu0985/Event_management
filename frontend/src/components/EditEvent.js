@@ -12,7 +12,7 @@ dayjs.extend(timezone);
 
 function EditEvent({ data, cancelEdit }) {
   const { userData } = useUsers();
-  const { addEvents } = useEvents();
+  const { updateEvent } = useEvents();
   const [username, setUserName] = useState("");
 
 
@@ -50,8 +50,14 @@ function EditEvent({ data, cancelEdit }) {
 
   const handleUpdateEvent = async () => {
     try {
-      const start = dayjs.tz(`${startDate} ${startTime}`, timezone).toDate();
-      const end = dayjs.tz(`${endDate} ${endTime}`, timezone).toDate();
+      const start = dayjs.tz(`${startDate} ${startTime}`, timezone);
+      const end = dayjs.tz(`${endDate} ${endTime}`, timezone);
+
+      // Validate dates
+      if (end.isBefore(start) || end.isSame(start)) {
+        alert("End date/time must be after start date/time");
+        return;
+      }
 
       setUpdatingEvent(true);
       const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5001";
@@ -59,8 +65,8 @@ function EditEvent({ data, cancelEdit }) {
         `${API_URL}/api/events/${data._id}`,
         {
           userIds: data.userIds,
-          EventStartDate: start,
-          EventEndDate: end,
+          EventStartDate: start.toDate(),
+          EventEndDate: end.toDate(),
           EventTimezone: timezone,
         }
       );
@@ -71,11 +77,13 @@ function EditEvent({ data, cancelEdit }) {
         EventStartDate: res.data.EventStartDate,
         EventEndDate: res.data.EventEndDate,
         EventTimezone: res.data.EventTimezone,
+        updateHistory: res.data.updateHistory,
       };
 
-      addEvents(Event);
+      updateEvent(Event);
+      cancelEdit();
 
-      console.log("Event created:", res.data);
+      console.log("Event updated:", res.data);
     } catch (err) {
       console.error(err);
     } finally {
@@ -161,6 +169,8 @@ function EditEvent({ data, cancelEdit }) {
             {updatingEvent ? "Updateing Event..." : "Update"}
           </button>
         </div>
+
+        {/* Update History Section */}
       </div>
     </div>
   );
